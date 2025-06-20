@@ -1,0 +1,184 @@
+# Pre-commit configuration for AI Mail MCP
+# This ensures code quality and consistency across all commits
+
+repos:
+  # Code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=88]
+        files: \.(py)$
+  
+  # Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=88]
+        files: \.(py)$
+  
+  # Linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+        files: \.(py)$
+  
+  # Security checks
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-r, -f, json]
+        exclude: ^tests/
+  
+  # YAML validation
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-d, relaxed]
+  
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Basic file checks
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
+      
+      # Python-specific checks
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-docstring-first
+      - id: debug-statements
+      - id: name-tests-test
+        files: tests/.*\.py$
+      
+      # Security and merge checks
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: detect-private-key
+      
+      # Code quality
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+  
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        files: ^Dockerfile
+  
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+        files: \.(md|markdown)$
+  
+  # Commit message format
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.13.0
+    hooks:
+      - id: commitizen
+      - id: commitizen-branch
+        stages: [push]
+
+# Local hooks for project-specific checks
+  - repo: local
+    hooks:
+      # Type checking with mypy
+      - id: mypy
+        name: Type checking with mypy
+        entry: mypy
+        language: python
+        types: [python]
+        args: [--config-file=pyproject.toml]
+        files: ^src/
+        additional_dependencies: [mypy, types-all]
+      
+      # Fast test suite (unit tests only)
+      - id: pytest-quick
+        name: Quick test suite
+        entry: pytest
+        language: python
+        args: [-x, -v, --tb=short, -m, "not slow"]
+        files: ^(src/|tests/)
+        pass_filenames: false
+        additional_dependencies: [pytest, pytest-cov]
+      
+      # Documentation checks
+      - id: doc-strings
+        name: Check docstrings
+        entry: python
+        language: python
+        args: [-c, "import ast, sys; [sys.exit(1) for f in sys.argv[1:] for node in ast.walk(ast.parse(open(f).read())) if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)) and not ast.get_docstring(node) and not node.name.startswith('_')]"]
+        files: ^src/.*\.py$
+      
+      # Security dependency check
+      - id: safety
+        name: Security dependency check
+        entry: safety
+        language: python
+        args: [check, --json]
+        files: ^(pyproject\.toml|requirements.*\.txt)$
+        additional_dependencies: [safety]
+      
+      # Performance regression check (only on push)
+      - id: performance-check
+        name: Performance regression check
+        entry: python
+        language: python
+        args: [scripts/benchmark.py]
+        stages: [push]
+        pass_filenames: false
+        additional_dependencies: [psutil]
+
+# Configuration
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [commit]
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+    
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
+
+# Exclude patterns
+exclude: |
+  (?x)^(
+    \.git/|
+    \.venv/|
+    venv/|
+    build/|
+    dist/|
+    \.egg-info/|
+    __pycache__/|
+    \.pytest_cache/|
+    \.mypy_cache/|
+    htmlcov/|
+    \.coverage|
+    benchmark_results\.json|
+    health_check_.*\.json|
+    monitoring_metrics\.json|
+    ai_mail_alerts\.log
+  )

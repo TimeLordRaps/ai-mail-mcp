@@ -1,0 +1,177 @@
+version: '3.8'
+
+services:
+  ai-mail-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-mail-mcp:latest
+    container_name: ai-mail-mcp-server
+    restart: unless-stopped
+    
+    environment:
+      # Agent configuration
+      - AI_AGENT_NAME=docker-agent
+      - AI_MAIL_DATA_DIR=/data
+      - AI_MAIL_LOG_DIR=/logs
+      
+      # Optional: Debug mode
+      # - AI_MAIL_DEBUG=1
+      
+      # Optional: Custom database settings
+      # - AI_MAIL_DB_TIMEOUT=30
+      # - AI_MAIL_MAX_MESSAGES=10000
+    
+    volumes:
+      # Persistent data storage
+      - ai_mail_data:/data
+      - ai_mail_logs:/logs
+      
+      # Optional: Mount host directory
+      # - ./data:/data
+      # - ./logs:/logs
+    
+    ports:
+      # No ports exposed by default since this is a local MCP server
+      # Add ports if you implement a web interface
+      # - "8080:8080"
+      []
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sqlite3; sqlite3.connect('/data/mailbox.db').execute('SELECT 1').close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # Set to true if you want read-only filesystem (except volumes)
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: AI Mail Dashboard (future feature)
+  # ai-mail-dashboard:
+  #   image: ai-mail-dashboard:latest
+  #   container_name: ai-mail-dashboard
+  #   depends_on:
+  #     - ai-mail-mcp
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - AI_MAIL_SERVER_URL=http://ai-mail-mcp:8080
+  #   volumes:
+  #     - ai_mail_data:/data:ro
+
+  # Optional: Monitoring with Prometheus (if needed)
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: ai-mail-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+
+volumes:
+  ai_mail_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/docker-data
+  
+  ai_mail_logs:
+    driver: local
+    driver_opts:
+      type: none  
+      o: bind
+      device: ${PWD}/docker-logs
+
+  # prometheus_data:
+  #   driver: local
+
+networks:
+  default:
+    name: ai-mail-network
+    driver: bridge
+
+# Development override
+# Use: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+---
+# docker-compose.dev.yml (development overrides)
+version: '3.8'
+
+services:
+  ai-mail-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development
+    
+    environment:
+      - AI_MAIL_DEBUG=1
+      - PYTHONPATH=/app/src
+    
+    volumes:
+      # Mount source code for development
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ai_mail_data:/data
+      - ai_mail_logs:/logs
+    
+    command: ["--agent-name=dev-agent"]
+    
+    # Override resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+
+# Production optimization
+---
+# docker-compose.prod.yml (production overrides)
+version: '3.8'
+
+services:
+  ai-mail-mcp:
+    restart: always
+    
+    environment:
+      - AI_MAIL_DEBUG=0
+      - AI_MAIL_LOG_LEVEL=INFO
+    
+    # Stricter resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 32M
+          cpus: '0.05'
+    
+    # Production security
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=10M

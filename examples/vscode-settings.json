@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "ai-mail": {
+        "command": "ai-mail-server",
+        "args": ["--agent-name=vscode-copilot"],
+        "env": {
+          "AI_MAIL_DATA_DIR": "${workspaceFolder}/.ai_mail",
+          "AI_MAIL_DEBUG": "1"
+        }
+      }
+    }
+  }
+}

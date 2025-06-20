@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ai-mail": {
+      "command": "ai-mail-server",
+      "env": {
+        "AI_AGENT_NAME": "claude-desktop",
+        "AI_MAIL_DATA_DIR": "~/.ai_mail"
+      }
+    }
+  }
+}

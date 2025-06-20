@@ -1,0 +1,60 @@
+{
+  "name": "@timelordraps/ai-mail-mcp",
+  "version": "1.0.0",
+  "description": "A Model Context Protocol server for AI agent mail communication - locally hostable mailbox system",
+  "main": "src/ai_mail_server.py",
+  "bin": {
+    "ai-mail-server": "./bin/ai-mail-server.js"
+  },
+  "scripts": {
+    "start": "uvx ai-mail-mcp",
+    "dev": "uvx --from . ai-mail-mcp",
+    "test": "pytest tests/",
+    "lint": "black src/ && isort src/",
+    "format": "black src/",
+    "typecheck": "mypy src/",
+    "install": "pip install -e .",
+    "orchestrator": "python src/ai_mail_mcp/orchestrator/main.py",
+    "monitor": "python scripts/monitor.py"
+  },
+  "preferGlobal": true,
+  "keywords": [
+    "mcp",
+    "model-context-protocol", 
+    "ai",
+    "agents",
+    "mail",
+    "communication",
+    "local",
+    "mailbox",
+    "orchestrator"
+  ],
+  "author": "TimeLordRaps <tyler.roost@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TimeLordRaps/ai-mail-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TimeLordRaps/ai-mail-mcp/issues"
+  },
+  "homepage": "https://github.com/TimeLordRaps/ai-mail-mcp#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.8"
+  },
+  "dependencies": {
+    "mcp": ">=0.1.0"
+  },
+  "files": [
+    "src/",
+    "bin/",
+    "README.md",
+    "LICENSE",
+    "package.json",
+    "pyproject.toml"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,163 @@
+name: Issue Response Bot
+
+on:
+  issues:
+    types: [opened, labeled, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  auto-label:
+    name: Auto Label Issues
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    
+    steps:
+    - name: Auto label bug reports
+      if: contains(github.event.issue.body, 'bug') || contains(github.event.issue.title, 'bug')
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.addLabels({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['bug', 'needs-triage']
+          })
+    
+    - name: Auto label feature requests
+      if: contains(github.event.issue.body, 'feature') || contains(github.event.issue.title, 'feature')
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.addLabels({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['enhancement', 'needs-triage']
+          })
+    
+    - name: Auto label documentation issues
+      if: contains(github.event.issue.body, 'documentation') || contains(github.event.issue.title, 'doc')
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.addLabels({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['documentation', 'good first issue']
+          })
+
+  respond-to-issue:
+    name: Respond to New Issues
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    
+    steps:
+    - name: Comment on new issue
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const issueBody = context.payload.issue.body || '';
+          const issueTitle = context.payload.issue.title || '';
+          
+          let response = `👋 Thank you for opening this issue! 
+          
+          The AI Mail MCP team will review this and respond within 24 hours. `;
+          
+          if (issueBody.includes('bug')) {
+            response += `
+          
+          🐛 **Bug Report Detected**
+          To help us resolve this quickly, please ensure you've included:
+          - Steps to reproduce the issue
+          - Expected vs actual behavior  
+          - Your environment details (OS, Python version, MCP client)
+          - Relevant log output or error messages
+          
+          If any of these details are missing, please add them to help us investigate.`;
+          }
+          
+          if (issueBody.includes('feature')) {
+            response += `
+          
+          ✨ **Feature Request Detected**
+          We appreciate your suggestion! Feature requests are evaluated based on:
+          - Community interest and demand
+          - Technical feasibility
+          - Alignment with project goals
+          - Implementation complexity
+          
+          We'll discuss this with the team and update you on our decision.`;
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: response
+          })
+
+  stale-issues:
+    name: Close Stale Issues
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+    - uses: actions/stale@v8
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        stale-issue-message: |
+          This issue has been automatically marked as stale because it has not had recent activity. 
+          It will be closed if no further activity occurs. Thank you for your contributions.
+        close-issue-message: |
+          This issue has been automatically closed due to inactivity. 
+          If this is still relevant, please feel free to reopen it.
+        stale-issue-label: 'stale'
+        exempt-issue-labels: 'pinned,help-wanted,on-hold'
+        days-before-stale: 60
+        days-before-close: 7
+
+  triage-assistant:
+    name: Triage Assistant  
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'labeled'
+    
+    steps:
+    - name: Move high priority to project board
+      if: contains(github.event.label.name, 'priority-high')
+      uses: actions/github-script@v6
+      with:
+        script: |
+          // This would integrate with GitHub Projects API
+          console.log('High priority issue detected, adding to urgent project board')
+          
+    - name: Request more info for incomplete bug reports
+      if: contains(github.event.label.name, 'bug') && !contains(github.event.issue.body, 'Steps to reproduce')
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `🔍 **More Information Needed**
+            
+            This appears to be a bug report, but we need more details to investigate:
+            
+            - [ ] Steps to reproduce the issue
+            - [ ] Expected behavior
+            - [ ] Actual behavior  
+            - [ ] Environment details (OS, Python version, MCP client)
+            - [ ] Log output or error messages
+            
+            Please update this issue with the missing information. Thanks!`
+          })
+          
+          github.rest.issues.addLabels({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['needs-more-info']
+          })
