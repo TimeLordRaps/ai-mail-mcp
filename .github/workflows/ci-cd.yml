@@ -33,14 +33,30 @@ jobs:
         python -c "
         import sys
         sys.path.insert(0, 'src')
+        
+        # Test individual module imports (bypass __init__.py server import issue)
         try:
             from ai_mail_mcp.models import Message
-            from ai_mail_mcp.mailbox import MailboxManager
-            from ai_mail_mcp.agent import AgentIdentifier
-            print('✅ All core imports successful')
+            print('✅ models.Message import successful')
         except Exception as e:
-            print(f'❌ Import failed: {e}')
+            print(f'❌ models import failed: {e}')
             exit(1)
+            
+        try:
+            from ai_mail_mcp.mailbox import MailboxManager
+            print('✅ mailbox.MailboxManager import successful')
+        except Exception as e:
+            print(f'❌ mailbox import failed: {e}')
+            exit(1)
+            
+        try:
+            from ai_mail_mcp.agent import AgentIdentifier
+            print('✅ agent.AgentIdentifier import successful')
+        except Exception as e:
+            print(f'❌ agent import failed: {e}')
+            exit(1)
+        
+        print('✅ All core imports successful')
         "
     
     - name: Test functionality
@@ -49,14 +65,19 @@ jobs:
         import sys
         sys.path.insert(0, 'src')
         from ai_mail_mcp.models import Message
+        from datetime import datetime, timezone
+        
+        # Test creating a Message object
         msg = Message(
             id='test-1',
             sender='test@example.com',
             recipient='user@example.com', 
             subject='Test Message',
-            content='Hello World'
+            body='Hello World',
+            timestamp=datetime.now(timezone.utc)
         )
-        print(f'✅ Created message: {msg.subject}')
+        print(f'✅ Created message: {msg.subject} from {msg.sender}')
+        print(f'✅ Message ID: {msg.id}')
         print('✅ Core functionality working')
         "
 
