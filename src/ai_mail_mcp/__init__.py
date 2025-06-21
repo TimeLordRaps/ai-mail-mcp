@@ -12,11 +12,13 @@ __email__ = "timelordraps@example.com"
 from .models import Message
 from .mailbox import MailboxManager
 from .agent import AgentIdentifier
-from .server import server
+
+# Note: server import removed temporarily for CI/CD compatibility
+# from .server import server
 
 __all__ = [
     "Message",
     "MailboxManager", 
     "AgentIdentifier",
-    "server",
+    # "server",  # Commented out until MCP dependencies are available
 ]
