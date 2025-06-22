@@ -4,6 +4,7 @@ Agent identification and naming utilities.
 
 import logging
 import os
+import re
 import socket
 from typing import Set
 
@@ -38,7 +39,7 @@ class AgentIdentifier:
         for var in env_vars:
             value = os.getenv(var)
             if value:
-                return value.strip()
+                return AgentIdentifier.sanitize_agent_name(value.strip())
         
         # Try to detect from process information
         if psutil:
@@ -74,15 +75,52 @@ class AgentIdentifier:
             import sys
             for arg in sys.argv:
                 if arg.startswith('--agent-name='):
-                    return arg.split('=', 1)[1]
+                    name = arg.split('=', 1)[1]
+                    return AgentIdentifier.sanitize_agent_name(name)
                 elif arg.startswith('--agent='):
-                    return arg.split('=', 1)[1]
+                    name = arg.split('=', 1)[1]
+                    return AgentIdentifier.sanitize_agent_name(name)
         except Exception as e:
             logger.debug(f"Could not detect agent from command line: {e}")
         
         # Fallback to hostname-based naming
         hostname = socket.gethostname()
-        return f"agent-{hostname}"
+        return AgentIdentifier.sanitize_agent_name(f"agent-{hostname}")
+    
+    @staticmethod
+    def sanitize_agent_name(name: str) -> str:
+        """Sanitize an agent name to make it valid."""
+        if not name:
+            return "default-agent"
+        
+        # Convert to lowercase and strip whitespace
+        name = name.lower().strip()
+        
+        # Replace invalid characters with dashes
+        name = re.sub(r'[^a-z0-9\-_.]', '-', name)
+        
+        # Remove multiple consecutive dashes
+        name = re.sub(r'-+', '-', name)
+        
+        # Remove leading/trailing dashes or underscores
+        name = name.strip('-_.')
+        
+        # Ensure minimum length
+        if len(name) < 2:
+            name = f"agent-{name}" if name else "default-agent"
+        
+        # Ensure maximum length
+        if len(name) > 64:
+            name = name[:64].rstrip('-_.')
+        
+        # Ensure it doesn't start or end with invalid characters
+        if name.startswith(('-', '_', '.')):
+            name = 'agent-' + name.lstrip('-_.')
+        
+        if name.endswith(('-', '_', '.')):
+            name = name.rstrip('-_.') + '-agent'
+        
+        return name
     
     @staticmethod
     def ensure_unique_name(mailbox: MailboxManager, preferred_name: str) -> str:
@@ -117,12 +155,16 @@ class AgentIdentifier:
         if len(name) < 2 or len(name) > 64:
             return False
             
-        # Check for valid characters (alphanumeric, dash, underscore)
-        if not name.replace('-', '').replace('_', '').replace('.', '').isalnum():
+        # Check for valid characters (alphanumeric, dash, underscore, dot)
+        if not re.match(r'^[a-zA-Z0-9\-_.]+$', name):
             return False
             
-        # Can't start or end with dash/underscore
-        if name.startswith(('-', '_')) or name.endswith(('-', '_')):
+        # Can't start or end with dash/underscore/dot
+        if name.startswith(('-', '_', '.')) or name.endswith(('-', '_', '.')):
+            return False
+            
+        # Must contain at least one letter or number
+        if not re.search(r'[a-zA-Z0-9]', name):
             return False
             
         return True
@@ -133,19 +175,28 @@ class AgentIdentifier:
         suggestions = []
         
         # Clean the base name
-        base_name = base_name.strip().lower()
+        base_name = AgentIdentifier.sanitize_agent_name(base_name)
         
         # Try numbered variants
-        for i in range(1, count + 1):
-            candidate = f"{base_name}-{i}"
+        counter = 2  # Start from 2 since base_name might be taken
+        while len(suggestions) < count:
+            candidate = f"{base_name}-{counter}"
             if candidate not in existing_names:
                 suggestions.append(candidate)
+            counter += 1
+            
+            # Prevent infinite loop
+            if counter > 1000:
+                break
                 
-        # Try with suffixes
-        suffixes = ['ai', 'bot', 'agent', 'assistant', 'worker']
-        for suffix in suffixes:
-            candidate = f"{base_name}-{suffix}"
-            if candidate not in existing_names and len(suggestions) < count:
-                suggestions.append(candidate)
-                
+        # Try with suffixes if we need more suggestions
+        if len(suggestions) < count:
+            suffixes = ['ai', 'bot', 'agent', 'assistant', 'worker', 'helper', 'client']
+            for suffix in suffixes:
+                candidate = f"{base_name}-{suffix}"
+                if candidate not in existing_names and candidate not in suggestions:
+                    suggestions.append(candidate)
+                    if len(suggestions) >= count:
+                        break
+                        
         return suggestions[:count]
