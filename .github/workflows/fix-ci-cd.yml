@@ -2,7 +2,7 @@ name: Fixed CI/CD Pipeline - Gradual Implementation
 
 on:
   push:
-    branches: [ main, develop, enhance-testing-pipeline, fix-testing-pipeline ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
 
